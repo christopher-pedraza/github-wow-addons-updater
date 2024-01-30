@@ -80,7 +80,7 @@ def downloadReleaseAssets(assets, categories_names):
             file_dir = requests.get(asset["browser_download_url"])
             print(".", end="")
             # Write the content of the response to a file
-            open(asset["name"], "wb").write(file_dir.content)
+            open("downloads/" + asset["name"], "wb").write(file_dir.content)
             print(". ", end="")
             print("Finished.")
 
