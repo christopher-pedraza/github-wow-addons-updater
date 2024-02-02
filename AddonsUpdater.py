@@ -1,11 +1,20 @@
+# configparser is used for handling configuration files
 import configparser
+
+# requests is used for making HTTP requests
 import requests
+
+# shutil and os are used for file and directory operations
 import shutil
 import os
+
+# time is used for time-related tasks, like delays
 import time
 
+# So colors are shown in the console
 os.system("color")
 
+# Colors used in the print statements
 # Colors from https://stackoverflow.com/questions/287871/how-do-i-print-colored-text-to-the-terminal
 BLUE = "\033[94m"
 CYAN = "\033[96m"
@@ -16,10 +25,10 @@ TITLE = "\x1b[6;36;40m"
 YELLOW = "\033[33m"
 
 
-def clear(doDelay=False):
-    time.sleep(5) if doDelay else None
+def clear():
+    # Clear the console. The command depends on the operating system
     os.system("cls" if os.name == "nt" else "clear")
-    # Elite Font from https://patorjk.com/software/taag/
+    # "Elite" Font from https://patorjk.com/software/taag/
     print(
         f"""{TITLE}
     ▄▄▄· ·▄▄▄▄  ·▄▄▄▄         ▐ ▄     ▄• ▄▌ ▄▄▄··▄▄▄▄   ▄▄▄· ▄▄▄▄▄▄▄▄ .▄▄▄  
@@ -46,6 +55,7 @@ def getSources(setup_values):
     for n in range(1, number_sources + 1):
         # Get the source values from the config
         source_values = dict(config.items(f"SOURCE_{n}"))
+        # Add the source ID to the source values
         source_values["source_id"] = f"SOURCE_{n}"
         # Add the source to the list of sources
         sources.append(source_values)
@@ -65,8 +75,9 @@ def getCategories(setup_values):
 
 
 def updateSourceVersion(source_data, new_version):
+    # Update the current version in the config file
     config.set(source_data["source_id"], "current_version", new_version)
-    # Writing our configuration file to 'example.ini'
+    # Writing our configuration file
     with open("config.cfg", "w") as configfile:
         config.write(configfile)
 
@@ -80,23 +91,30 @@ def getReleaseAssets(source_data):
         + "/releases/latest"
     )
 
+    # Try to make a GET request to the URL
     try:
+        # Parse the response as JSON
         data = requests.get(url).json()
-    except requests.exceptions.RequestException as e:  # This is the correct syntax
+    # If a RequestException is raised, print an error message and return an empty list
+    except requests.exceptions.RequestException as e:
         print(
             f"\n\n{RED}Failed to get the latest release for {source_data['source_url']}. Reason:\n{e}{NORMAL}"
         )
         return []
 
+    # Update the current version of the source in the config file
     updateSourceVersion(source_data, data["tag_name"])
+
+    # If the latest version is the same as the current version, ask the user if they still want to download it
     if data["tag_name"] == source_data["current_version"]:
         ans = input(
-            f"{YELLOW}\nLatest release already downloaded for {source_data['source_url']}. Do you still want to download it? (y/n) {NORMAL}"
+            f"{YELLOW}\nLatest release already downloaded for {source_data['source_url'].replace('https://github.com/','')}. Do you still want to download it? (y/n) {NORMAL}"
         )
+        # If the user answers "n", return an empty list
         if ans == "n":
             return []
 
-    # Make a GET request to the URL and get the assets from the response JSON
+    # Return the assets from the latest release
     return data["assets"]
 
 
@@ -140,6 +158,7 @@ def downloadReleaseAssets(setup_values, assets, categories_names, doCopy):
                 open("downloads/" + asset["name"], "wb").write(file_dir.content)
                 print(". ", end="")
                 print(f"{GREEN}FINISHED{NORMAL}")
+                # Copy the file to the destination directory if the flag is set
                 copyFile(
                     asset["name"], setup_values[category + "_dir"]
                 ) if doCopy else None
@@ -157,21 +176,25 @@ def getReleases(setup_values, sources_values, categories, doCopy):
 
 
 def cleanDownloads():
+    # Iterate over each file in the "downloads" directory
     for filename in os.listdir("downloads"):
+        # Construct the full file path by joining the directory name and the filename
         file_path = os.path.join("downloads", filename)
         try:
+            # If the file path points to a file or a symbolic link, delete it
             if os.path.isfile(file_path) or os.path.islink(file_path):
                 os.unlink(file_path)
+            # If the file path points to a directory, delete it and all its contents
             elif os.path.isdir(file_path):
                 shutil.rmtree(file_path)
+        # If an exception is raised during the deletion, print an error message
         except Exception as e:
             print("Failed to delete %s. Reason: %s" % (file_path, e))
 
 
 # Initialize a config parser
 config = configparser.ConfigParser()
-# Read the configuration from a file
-# Handle errors in case a section is repeated
+# Read the configuration from a file and handle any errors
 try:
     config.read("config.cfg")
 except configparser.DuplicateSectionError as dse:
