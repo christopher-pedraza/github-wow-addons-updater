@@ -53,6 +53,12 @@ def getSources(setup_values):
     # Create a list of sources
     sources = []
     for n in range(1, number_sources + 1):
+        # Check if the section for the source exists
+        if config.has_section(f"SOURCE_{n}") == False:
+            print(
+                f"{RED}\nError: The config file is missing a section for SOURCE_{n}. Please fix it and try again.{NORMAL}"
+            )
+            exit(1)
         # Get the source values from the config
         source_values = dict(config.items(f"SOURCE_{n}"))
         # Add the source ID to the source values
@@ -106,7 +112,7 @@ def getReleaseAssets(source_data):
     updateSourceVersion(source_data, data["tag_name"])
 
     # If the latest version is the same as the current version, ask the user if they still want to download it
-    if data["tag_name"] == source_data["current_version"]:
+    if data["tag_name"] == source_data.get("current_version", ""):
         ans = input(
             f"{YELLOW}\nLatest release already downloaded for {source_data['source_url'].replace('https://github.com/','')}. Do you still want to download it? (y/n) {NORMAL}"
         )
@@ -124,7 +130,7 @@ def getCategoriesNames(categories, source_data):
     for value in source_data:
         for category in categories:
             # If the category is in the value, add the source data value to the category names
-            if category.lower() in value.lower():
+            if category.lower() == value[:-3].lower():
                 categories_names[category.lower()] = source_data[value].lower()
     return categories_names
 
