@@ -70,13 +70,14 @@ def getSources(setup_values):
 
 
 def getCategories(setup_values):
-    # Initialize a list to hold the categories
-    categories = []
-    for value in setup_values:
-        # If the value ends with "_dir", it's a category
-        if value.endswith("_dir"):
-            # Add the category to the list, removing the "_dir" part
-            categories.append(value[:-4])
+    categories_str = setup_values.get("categories", "")
+    # Remove the spaces of the string and then split it by the comma into a list
+    categories = (
+        categories_str.replace(" ", "")
+        .lower()
+        .split(setup_values.get("separator", ","))
+    )
+
     return categories
 
 
@@ -124,14 +125,19 @@ def getReleaseAssets(source_data):
     return data["assets"]
 
 
-def getCategoriesNames(categories, source_data):
+def getCategoriesNames(categories, source_data, setup_values):
     # Initialize a list to hold the category names
     categories_names = {}
     for value in source_data:
         for category in categories:
             # If the category is in the value, add the source data value to the category names
             if category.lower() == value[:-3].lower():
-                categories_names[category.lower()] = source_data[value].lower()
+                categories_names[category.lower()] = (
+                    source_data[value]
+                    .replace(" ", "")
+                    .lower()
+                    .split(setup_values.get("separator", ","))
+                )
     return categories_names
 
 
@@ -153,21 +159,24 @@ def copyFile(fileName, destination):
 def downloadReleaseAssets(setup_values, assets, categories_names, doCopy):
     for asset in assets:
         for category in categories_names:
-            # If the category is in the asset name, set the flag to download the asset
-            if categories_names[category] in asset["name"].lower():
-                # Print the name of the file being downloaded
-                print("\nDownloading '" + asset["name"] + "'", end=" .")
-                # Make a GET request to the asset download URL
-                file_dir = requests.get(asset["browser_download_url"])
-                print(".", end="")
-                # Write the content of the response to a file
-                open("downloads/" + asset["name"], "wb").write(file_dir.content)
-                print(". ", end="")
-                print(f"{GREEN}FINISHED{NORMAL}")
-                # Copy the file to the destination directory if the flag is set
-                copyFile(
-                    asset["name"], setup_values[category + "_dir"]
-                ) if doCopy else None
+            for ids in categories_names[category]:
+                # If the category is in the asset name, set the flag to download the asset
+                if ids in asset["name"].lower():
+                    # Print the name of the file being downloaded
+                    print("\nDownloading '" + asset["name"] + "'", end=" .")
+                    # Make a GET request to the asset download URL
+                    file_dir = requests.get(asset["browser_download_url"])
+                    print(".", end="")
+                    # Write the content of the response to a file
+                    open("downloads/" + asset["name"], "wb").write(file_dir.content)
+                    print(". ", end="")
+                    print(f"{GREEN}FINISHED{NORMAL}")
+                    # Copy the file to the destination directory if the flag is set
+                    (
+                        copyFile(asset["name"], setup_values[category + "_dir"])
+                        if doCopy
+                        else None
+                    )
 
 
 def getReleases(setup_values, sources_values, categories, doCopy):
@@ -176,7 +185,7 @@ def getReleases(setup_values, sources_values, categories, doCopy):
         # Get the release assets for the source
         assets = getReleaseAssets(source_data)
         # Get the category names for the source
-        categories_names = getCategoriesNames(categories, source_data)
+        categories_names = getCategoriesNames(categories, source_data, setup_values)
         # Download the release assets
         downloadReleaseAssets(setup_values, assets, categories_names, doCopy)
 
@@ -235,6 +244,7 @@ sources_values = getSources(setup_values)
 exit_value = ""
 while exit_value != "0":
     clear()
+    print(categories)
     print("1. Update Addons")
     print("2. Download Latest Addons")
     print("0. Exit")
@@ -243,14 +253,19 @@ while exit_value != "0":
 
     if exit_value == "1":
         getReleases(setup_values, sources_values, categories, doCopy=True)
-        cleanDownloads() if setup_values[
-            "auto_delete_downloads"
-        ].lower() == "true" or input(
-            "\n\nDo you want to clean the downloads folder? (y/n) "
-        ) == "y" else None
+        (
+            cleanDownloads()
+            if setup_values["auto_delete_downloads"].lower() == "true"
+            or input("\n\nDo you want to clean the downloads folder? (y/n) ") == "y"
+            else None
+        )
     elif exit_value == "2":
         getReleases(setup_values, sources_values, categories, doCopy=False)
 
-    input(
-        "\n=================================================================================\n\nPress Enter to return to the menu..."
-    ) if exit_value != "0" else None
+    (
+        input(
+            "\n=================================================================================\n\nPress Enter to return to the menu..."
+        )
+        if exit_value != "0"
+        else None
+    )

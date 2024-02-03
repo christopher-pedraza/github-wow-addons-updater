@@ -5,6 +5,8 @@ The General Setup section is titled "SETUP" and looks something like this:
 '''
 [SETUP]
 number_sources = 3
+separator = ,
+categories = asset1, asset2
 asset1_dir = C:\dir\to\file\a1
 asset2_dir = C:\dir\to\file\a2
 auto_delete_downloads = TRUE
@@ -19,13 +21,23 @@ number of sources and is directly related to the number of Sources sections belo
 on this later). For example, if you want to download addons from 3 sources, you should set
 as the value "3" as it's in the example above.
 
+Following that is the separator string that is going to be used to parse whenever we have
+lists of values for attributes (categories, ids). You may specify any character that you
+won't use for the list of values in the lists.
+
+Then we have the categories attribute which lets you define the categories' names you will
+later use. You may declare 1 or more categories, each one of them separated by the
+separator you declared in the previous attrbute. Remember NOT to use the character you
+defined as the separator in the names of the categories. Keep these names you have decided
+in mind as they will be useful for the configuration of the directories where the assets 
+will be stored and for identifying them from the sources.
+
 The next lines contain the directories where the assets that are downloaded from the 
 sources will be copied. The name of each variable follows the format: "{category}_dir".
-It's important that this category name should be the same as the id in the sources, which
-will be discussed later. Basically, if you have 3 places you want to store things, assign
-to each one a category name that will be later used to know what files from the sources
-should go where. Keep these names you have decided in mind as they will be useful for
-the configuration of the sources.
+It's important that this category name should be the same as the list in the "categories"
+attribute, as well as the id in the sources, which will be discussed later. Basically, if
+you have 3 places you want to store things, assign to each one a category name that will
+be later used to know what files from the sources should go where. 
 
 Finally, there's the "auto_delete_downloads" attribute. This can take the values "TRUE"
 or "FALSE", but it's not case sensitive. When TRUE, the app won't ask you every time it
@@ -58,7 +70,7 @@ Each section is roughly structured like this:
 [SOURCE_1]
 source_url = https://github.com/{user}/{repo}
 current_version = -1
-retail_id = mainline
+retail_id = mainline, tbc
 classic_id = vanilla
 '''
 
@@ -94,11 +106,41 @@ belongs to the category. For example, if we have the files "file1_mainline.zip",
 files, we could use as a value "mainline" as only that file contains that word. If, on
 the other hand we want to target the first 2 files, we could use the value "file" as 
 both of them contain that word, but the file 3 ("something.zip") doesn't contain it, so
-it wouldn't be targeted.
+it wouldn't be targeted. Also, it's possible to assign multiple ids for the same
+attribute, this way, you could copy multiple assets in the same directory even if they
+don't share any common word. Returning to the example of the 3 files, if we want to
+target the first two files, we could have "mainline, vanilla". In this case, the
+separator for the ids would be the same declared in the SETUP section. Also, the ids
+aren't case sensitive and don't consider spaces (they will be ignored, so if you had
+the id "The Category" it would be read as "thecategory").
 
-In the following example we define a category and its directory, as well as two files 
-that will be downloaded 
+In the following example we define two categories, three directories where some assets
+will be copied, set the auto deletion of the downloads folder to FALSE, and define 2
+sources from which we will download 2 files from the first one, and 1 from the last
+one:
 
+'''
+[SETUP]
+number_sources = 2
+separator = ,
+categories = normal, naevys
+normal_dir = D:\Folders\Desktop\normal
+backup_dir = D:\Folders\Desktop\backup
+naevys_dir = D:\Folders\Desktop\naevys
+auto_delete_downloads = FALSE
 
+[SOURCE_1]
+source_url = https://github.com/Ludovicus-Maior/WoW-Pro-Guides
+current_version = 20240122
+normal_id = mainline, vanilla
+backup_id = vanilla
 
-NECESITO AGREGAR UN ATRIBUTO DE SEPARADOR Y PONER TODOS LOS IDS COMO LISTA SEPARADOS POR EL SEPARADOR YA QUE NO ME DEJA REPETIR ATRIBUTOS
+[SOURCE_2]
+source_url = https://github.com/christopher-pedraza/NAEVYS-updater
+current_version = 3.0
+naevys_id = naevys
+'''
+
+In this example, the folder "normal/" will end up with the files having the words
+"mainline" and "vanilla", the "backup/" folder with the file with the word "vanilla",
+and the folder "naevys" with the file with the "naevys" word.
