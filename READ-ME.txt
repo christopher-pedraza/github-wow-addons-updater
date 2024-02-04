@@ -10,6 +10,8 @@ categories = asset1, asset2
 asset1_dir = C:\dir\to\file\a1
 asset2_dir = C:\dir\to\file\a2
 auto_delete_downloads = TRUE
+auto_open_directories = TRUE
+directories_to_auto_open = downloads, asset1
 '''
 
 Starting with the name of the section, the line "[SETUP]" should remain exactly as it is
@@ -39,13 +41,22 @@ attribute, as well as the id in the sources, which will be discussed later. Basi
 you have 3 places you want to store things, assign to each one a category name that will
 be later used to know what files from the sources should go where. 
 
-Finally, there's the "auto_delete_downloads" attribute. This can take the values "TRUE"
-or "FALSE", but it's not case sensitive. When TRUE, the app won't ask you every time it
+Then, there's the "auto_delete_downloads" attribute. This can take the values "TRUE"
+or "FALSE", but it's not case sensitive. When "TRUE", the app won't ask you every time it
 updates the addons whether you want to keep the content of the downloads folder, it will
-automatically delete everythin in it. If FALSE, after updating it will ask you if you 
+automatically delete everythin in it. If "FALSE", after updating it will ask you if you 
 want to keep the content of the folder or not. Notice that the downloads directory is
 NOT the default downloads folder in your computer, but rather, a folder that is created
 in the same directory where the program is when running it.
+
+After that we have two attributes that lets you define whether you want to auto open
+the directories you have defined, and which of them you would like to auto open. When
+"auto_open_directories" is set to "TRUE", the directories of the categories defined in the
+attribute "directories_to_auto_open" will open after downloading or updating the addons.
+If no categories are defined in the attribute, or the attribute itself is not included,
+but you have auto opening directories set to "TRUE", all directories defined in the SETUP
+will auto open. In the case you also want to open the downloads directory after downloading
+or updating, you may include it in "directories_to_auto_open" as if it's a category. 
 
 Don't worry if the order of your attributes is not the same as the one in the example, 
 as the order doesn't matter. Also, you may have as many directories as you want, not

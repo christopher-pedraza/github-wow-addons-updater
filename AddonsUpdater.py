@@ -48,7 +48,12 @@ def getSetup():
 
 def getSources(setup_values):
     # Get the number of sources from the setup values
-    number_sources = int(setup_values["number_sources"])
+    number_sources = int(setup_values.get("number_sources", 0))
+    if number_sources == 0:
+        print(
+            f"{RED}\nError: The config file is missing the number of sources. Please fix it and try again.{NORMAL}"
+        )
+        exit(1)
 
     # Create a list of sources
     sources = []
@@ -91,7 +96,13 @@ def updateSourceVersion(source_data, new_version):
 
 def getReleaseAssets(source_data):
     # Get the source URL
-    url = source_data["source_url"]
+    url = source_data.get("source_url", "")
+    # If the URL is empty, print an error message and return an empty list
+    if url == "":
+        print(
+            f"{RED}\nError: The source URL for the source {source_data['source_id']} is empty.{NORMAL}"
+        )
+        return []
     # Replace the GitHub URL with the API URL and append the endpoint for the latest release
     url = (
         url.replace("https://github.com/", "https://api.github.com/repos/")
@@ -173,7 +184,7 @@ def downloadReleaseAssets(setup_values, assets, categories_names, doCopy):
                     print(f"{GREEN}FINISHED{NORMAL}")
                     # Copy the file to the destination directory if the flag is set
                     (
-                        copyFile(asset["name"], setup_values[category + "_dir"])
+                        copyFile(asset["name"], setup_values.get(category + "_dir", ""))
                         if doCopy
                         else None
                     )
@@ -207,6 +218,117 @@ def cleanDownloads():
             print("Failed to delete %s. Reason: %s" % (file_path, e))
 
 
+def openDirectories(setup_values, categories):
+    if setup_values.get("auto_open_directories", "false").lower() != "true":
+        # Initialize an empty list to store directories
+        dirs = []
+        # Print the first option and append the corresponding directory to the list
+        print("1) Downloads")
+        dirs.append("downloads")
+        # Initialize a counter for the options
+        i = 2
+        # Iterate over each category
+        for category in categories:
+            # Print the option and append the corresponding directory to the list
+            print(f"{i}) {category.capitalize()}")
+            dirs.append(setup_values.get(category + "_dir", ""))
+            # Increment the counter
+            i += 1
+        # Print the last two options
+        print(f"{i}) All")
+        print(f"0) Return to the menu")
+
+        # Ask the user for their choice
+        option = input("\nDirectory to open: ")
+
+        # If the user chose to return to the menu, exit the function
+        if option == "0":
+            return
+        # If the user chose to open all directories, iterate over each directory and open it
+        elif option == str(i):
+            for dir in dirs:
+                os.startfile(dir) if dir != "" else None
+        # If the user chose a specific directory, open it
+        else:
+            dir = dirs[int(option) - 1]
+            os.startfile(dir) if dir != "" else None
+    else:
+        # Get the directories to auto open from the setup values, remove spaces, convert to lowercase, and split into a list
+        directories = (
+            setup_values.get("directories_to_auto_open", "")
+            .replace(" ", "")
+            .lower()
+            .split(setup_values.get("separator", ","))
+        )
+        # If the list contains an empty string, replace it with the list of categories and append "downloads"
+        # An empty list means we should open all directories
+        if "" in directories:
+            directories = [category for category in categories]
+            directories.append("downloads")
+        # Iterate over each directory
+        for directory in directories:
+            # If the directory is "downloads", open it
+            if directory == "downloads":
+                os.startfile("downloads")
+            # Otherwise, get the directory from the setup values and open it if it's not an empty string
+            else:
+                dir = setup_values.get(directory + "_dir", "")
+                os.startfile(dir) if dir != "" else None
+
+
+def init():
+    # Get the setup values from the config
+    setup_values = getSetup()
+    # Get the categories from the setup values
+    categories = getCategories(setup_values)
+    # Get the sources from the setup values
+    sources_values = getSources(setup_values)
+
+    exit_value = ""
+    while exit_value != "0":
+        clear()
+        print("1. Update Addons")
+        print("2. Download Latest Addons")
+        print("3. Open directories")
+        print("0. Exit")
+        exit_value = input("\nOption: ")
+        clear()
+
+        if exit_value == "1":
+            getReleases(setup_values, sources_values, categories, doCopy=True)
+            # Clean the downloads folder if the flag is set to automatically delete the files
+            (
+                cleanDownloads()
+                if setup_values.get("auto_delete_downloads", "false").lower() == "true"
+                or input("\n\nDo you want to clean the downloads folder? (y/n) ") == "y"
+                else None
+            )
+            # Open the directories if the flag is set to automatically open them
+            (
+                openDirectories(setup_values, categories)
+                if setup_values.get("auto_open_directories", "false").lower() == "true"
+                else None
+            )
+        elif exit_value == "2":
+            getReleases(setup_values, sources_values, categories, doCopy=False)
+            # Open the directories if the flag is set to automatically open them
+            (
+                openDirectories(setup_values, categories)
+                if setup_values.get("auto_open_directories", "false").lower() == "true"
+                else None
+            )
+        elif exit_value == "3":
+            openDirectories(setup_values, categories)
+
+        (
+            input(
+                "\n=================================================================================\n\nPress Enter to return to the menu..."
+            )
+            if exit_value != "0" and exit_value != "3"
+            else None
+        )
+
+
 # Initialize a config parser
 config = configparser.ConfigParser()
 # Read the configuration from a file and handle any errors
@@ -233,39 +355,4 @@ except configparser.Error as e:
     )
     exit(1)
 
-
-# Get the setup values from the config
-setup_values = getSetup()
-# Get the categories from the setup values
-categories = getCategories(setup_values)
-# Get the sources from the setup values
-sources_values = getSources(setup_values)
-
-exit_value = ""
-while exit_value != "0":
-    clear()
-    print(categories)
-    print("1. Update Addons")
-    print("2. Download Latest Addons")
-    print("0. Exit")
-    exit_value = input("\nOption: ")
-    clear()
-
-    if exit_value == "1":
-        getReleases(setup_values, sources_values, categories, doCopy=True)
-        (
-            cleanDownloads()
-            if setup_values["auto_delete_downloads"].lower() == "true"
-            or input("\n\nDo you want to clean the downloads folder? (y/n) ") == "y"
-            else None
-        )
-    elif exit_value == "2":
-        getReleases(setup_values, sources_values, categories, doCopy=False)
-
-    (
-        input(
-            "\n=================================================================================\n\nPress Enter to return to the menu..."
-        )
-        if exit_value != "0"
-        else None
-    )
+init()
