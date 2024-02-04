@@ -1,3 +1,5 @@
+VERSION = "1.0"
+
 # configparser is used for handling configuration files
 import configparser
 
@@ -7,9 +9,6 @@ import requests
 # shutil and os are used for file and directory operations
 import shutil
 import os
-
-# time is used for time-related tasks, like delays
-import time
 
 # So colors are shown in the console
 os.system("color")
@@ -276,7 +275,53 @@ def openDirectories(setup_values, categories):
                 os.startfile(dir) if dir != "" else None
 
 
+def checkForUpdates():
+    url = "https://api.github.com/repos/christopher-pedraza/github-wow-addons-updater/releases/latest"
+
+    # Try to make a GET request to the URL
+    try:
+        # Parse the response as JSON
+        data = requests.get(url).json()
+    # If a RequestException is raised, print an error message and return an empty list
+    except requests.exceptions.RequestException as e:
+        print(f"\n\n{RED}Failed to check for updates. Reason:\n{e}{NORMAL}")
+        return
+
+    if data.get("message", "") != "Not Found":
+        # Get the latest version from the response
+        latest_version = data["tag_name"]
+
+        # If the latest version is different from the current version, print a message
+        if latest_version != VERSION:
+            print(
+                f"\n{YELLOW}A new version is available. Current version: {VERSION}. Latest version: {latest_version}.{NORMAL}"
+            )
+            # Ask the user if they want to download the latest version
+            ans = input(f"\nDo you want to download the latest version? (y/n) ")
+            # If the user answers "y", download the latest version
+            if ans == "y":
+                print("\nDownloading the latest version...", end=" ")
+                # Make a GET request to the latest release URL
+                file_dir = requests.get(data["assets"][0]["browser_download_url"])
+                # Write the content of the response to a file
+                open(f"AddonsUpdater_{latest_version}.zip", "wb").write(
+                    file_dir.content
+                )
+                print(f"{GREEN}FINISHED{NORMAL}")
+                # Print a message asking the user to replace the current version with the latest version
+                print(
+                    f"\nReplace the current version of AddonsUpdater with the latest version ({latest_version}) and run it again."
+                )
+                # Wait for the user to press Enter
+                input("\nPress Enter to exit...")
+                # Exit the program
+                exit(0)
+
+
 def init():
+    clear()
+    checkForUpdates()
+
     # Get the setup values from the config
     setup_values = getSetup()
     # Get the categories from the setup values
