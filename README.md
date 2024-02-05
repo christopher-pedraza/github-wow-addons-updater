@@ -1,3 +1,6 @@
+Icon from [max.icons in flaticon.com](https://www.flaticon.com/free-icon/fire_3426195)
+
+
 The configuration file is composed of two types of sections: General Setup and Sources.
 
 The General Setup section is titled "SETUP" and looks something like this:
