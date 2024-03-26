@@ -12,7 +12,7 @@ separator = ,
 categories = asset1, asset2
 asset1_dir = C:\dir\to\file\a1
 asset2_dir = C:\dir\to\file\a2
-auto_delete_downloads = TRUE
+skip_confirmations = FALSE
 auto_open_directories = TRUE
 directories_to_auto_open = downloads, asset1
 ```
@@ -44,13 +44,12 @@ attribute, as well as the id in the sources, which will be discussed later. Basi
 you have 3 places you want to store things, assign to each one a category name that will
 be later used to know what files from the sources should go where. 
 
-Then, there's the "auto_delete_downloads" attribute. This can take the values "TRUE"
-or "FALSE", but it's not case sensitive. When "TRUE", the app won't ask you every time it
-updates the addons whether you want to keep the content of the downloads folder, it will
-automatically delete everythin in it. If "FALSE", after updating it will ask you if you 
-want to keep the content of the folder or not. Notice that the downloads directory is
-NOT the default downloads folder in your computer, but rather, a folder that is created
-in the same directory where the program is when running it.
+Then, there's the "skip_confirmations" attribute. This can take the values "TRUE" or
+"FALSE", but it's not case sensitive. When "TRUE", in case the app detects that you already
+have the newest version from a source, it won't ask for a confirmation to download it again
+and instead will just proceed to downloading the assets. When "FALSE", every time the app
+detects that you already have the newest version, it will ask for a confirmation to
+download the files.
 
 After that we have two attributes that lets you define whether you want to auto open
 the directories you have defined, and which of them you would like to auto open. When
