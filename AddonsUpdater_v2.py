@@ -202,23 +202,6 @@ def getReleases(setup_values, sources_values, categories, doCopy):
         downloadReleaseAssets_DEPRECATED(setup_values, assets, categories_names, doCopy)
 
 
-def cleanDownloads():
-    # Iterate over each file in the "downloads" directory
-    for filename in os.listdir("downloads"):
-        # Construct the full file path by joining the directory name and the filename
-        file_path = os.path.join("downloads", filename)
-        try:
-            # If the file path points to a file or a symbolic link, delete it
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            # If the file path points to a directory, delete it and all its contents
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        # If an exception is raised during the deletion, print an error message
-        except Exception as e:
-            print("Failed to delete %s. Reason: %s" % (file_path, e))
-
-
 def openDirectories(setup_values, categories):
     if setup_values.get("auto_open_directories", "false").lower() != "true":
         # Initialize an empty list to store directories
@@ -370,7 +353,8 @@ def getReleaseAssets(source_data):
     # If the latest version is the same as the current version, ask the user if they still want to download it
     if data["tag_name"] == source_data.get("current_version", ""):
         ans = input(
-            f"{YELLOW}\nLatest release already downloaded for {source_data['source_url'].replace('https://github.com/','')}. Do you still want to download it? (y/n) {NORMAL}"
+            f"{YELLOW}\nLatest release already downloaded for {source_data['source_url'].replace('https://github.com/','')}."
+            + f"\nDo you still want to download it? (y/n) {NORMAL}"
         )
         # If the user answers "n", return an empty list
         if ans == "n":
@@ -391,10 +375,19 @@ def getReleaseAssets(source_data):
 
 def getCategoriesIDs(categories, source_data, setup_values):
     categories_ids = {}
+
     for category in categories:
         category = category.lower()
         category_ids = category + "_id"
-        if source_data.get(category_ids, None):
+        if category_ids in source_data:
+            # temp_ids = categories_ids.get(category, [])
+            # temp_ids.extend(
+            #     source_data[category_ids]
+            #     .replace(" ", "")
+            #     .lower()
+            #     .split(setup_values.get("separator", ","))
+            # )
+            # categories_ids[category] = list(set(temp_ids))
             categories_ids[category] = (
                 source_data[category_ids]
                 .replace(" ", "")
@@ -404,43 +397,50 @@ def getCategoriesIDs(categories, source_data, setup_values):
     return categories_ids
 
 
-def downloadReleaseAssets(assets, categories_names):
+def downloadReleaseAssets(assets, categories_names, downloaded_assets):
+    categories_ids = set(
+        (category, id) for category, ids in categories_names.items() for id in ids
+    )
     for asset in assets:
-
-        
-    for asset in assets:
-        for category in categories_names:
-            for ids in categories_names[category]:
-                # If the category is in the asset name, set the flag to download the asset
-                if ids in asset["name"].lower():
-                    # Print the name of the file being downloaded
-                    print("\nDownloading '" + asset["name"] + "'", end=" .")
-                    # Make a GET request to the asset download URL
-                    file_dir = requests.get(asset["browser_download_url"])
-                    print(".", end="")
-                    # Write the content of the response to a file
-                    open("downloads/" + asset["name"], "wb").write(file_dir.content)
-                    print(". ", end="")
-                    print(f"{GREEN}FINISHED{NORMAL}")
+        for category, id in categories_ids:
+            if (asset["name"], category) not in downloaded_assets and id in asset[
+                "name"
+            ].lower():
+                # Print the name of the file being downloaded
+                print("\nDownloading '" + asset["name"] + "'", end=" .")
+                # Make a GET request to the asset download URL
+                file_dir = requests.get(asset["browser_download_url"])
+                print(".", end="")
+                # Write the content of the response to a file
+                open("downloads/" + asset["name"], "wb").write(file_dir.content)
+                print(". ", end="")
+                print(f"{GREEN}FINISHED{NORMAL}")
+                downloaded_assets.add((asset["name"], category))
 
 
-def downloadAssets(setup_values, categories, sources_values):
+def getDirectories(setup_values, categories):
+    directories = {}
+    for category in categories:
+        if category + "_dir" in setup_values:
+            directories[category] = setup_values.get(category + "_dir")
+    return directories
+
+
+def downloadAssets(downloaded_assets, setup_values, categories, sources_values):
     for source_data in sources_values:
-        # print(categories)
-        # print(source_data)
-        # print(setup_values)
-
         # Get the ids associated with the categories (fragment of the name of the files that will
         # let the program identify to which directory it should be copied)
         categories_ids = getCategoriesIDs(categories, source_data, setup_values)
-        # print(categories_ids)
-
         # Get the release assets for the source
         assets = getReleaseAssets(source_data)
-
         # Download the release assets
-        downloadReleaseAssets(assets, categories_ids)
-        return
+        downloadReleaseAssets(assets, categories_ids, downloaded_assets)
+
+
+def copyAssets(downloaded_assets, directories):
+    for asset, category in downloaded_assets:
+        if category in directories:
+            copyFile(asset, directories.get(category))
 
 
 def init():
@@ -453,9 +453,8 @@ def init():
     categories = getCategories(setup_values)
     # Get the sources from the setup values
     sources_values = getSources(setup_values)
-
-    downloadAssets(setup_values, categories, sources_values)
-    return
+    # Get the directories where the assets should be copied
+    directories = getDirectories(setup_values, categories)
 
     exit_value = ""
     while exit_value != "0":
@@ -468,34 +467,24 @@ def init():
         clear()
 
         if exit_value == "1":
-            getReleases(setup_values, sources_values, categories, doCopy=True)
-            # Clean the downloads folder if the flag is set to automatically delete the files
-            (
-                cleanDownloads()
-                if setup_values.get("auto_delete_downloads", "false").lower() == "true"
-                or input("\n\nDo you want to clean the downloads folder? (y/n) ") == "y"
-                else None
-            )
-            # Open the directories if the flag is set to automatically open them
+            downloaded_assets = set()
+            downloadAssets(downloaded_assets, setup_values, categories, sources_values)
+            copyAssets(downloaded_assets, directories)
             (
                 openDirectories(setup_values, categories)
                 if setup_values.get("auto_open_directories", "false").lower() == "true"
                 else None
             )
         elif exit_value == "2":
-            getReleases(setup_values, sources_values, categories, doCopy=False)
-            # Open the directories if the flag is set to automatically open them
-            (
-                openDirectories(setup_values, categories)
-                if setup_values.get("auto_open_directories", "false").lower() == "true"
-                else None
-            )
+            downloaded_assets = set()
+            downloadAssets(downloaded_assets, setup_values, categories, sources_values)
         elif exit_value == "3":
             openDirectories(setup_values, categories)
 
         (
             input(
-                "\n=================================================================================\n\nPress Enter to return to the menu..."
+                "\n================================================================================="
+                + "\n\nPress Enter to return to the menu..."
             )
             if exit_value != "0" and exit_value != "3"
             else None
