@@ -93,64 +93,6 @@ def updateSourceVersion(source_data, new_version):
         config.write(configfile)
 
 
-def getReleaseAssets_DEPRECATED(source_data):
-    # Get the source URL
-    url = source_data.get("source_url", "")
-    # If the URL is empty, print an error message and return an empty list
-    if url == "":
-        print(
-            f"{RED}\nError: The source URL for the source {source_data['source_id']} is empty.{NORMAL}"
-        )
-        return []
-    # Replace the GitHub URL with the API URL and append the endpoint for the latest release
-    url = (
-        url.replace("https://github.com/", "https://api.github.com/repos/")
-        + "/releases/latest"
-    )
-
-    # Try to make a GET request to the URL
-    try:
-        # Parse the response as JSON
-        data = requests.get(url).json()
-    # If a RequestException is raised, print an error message and return an empty list
-    except requests.exceptions.RequestException as e:
-        print(
-            f"\n\n{RED}Failed to get the latest release for {source_data['source_url']}. Reason:\n{e}{NORMAL}"
-        )
-        return []
-
-    # Update the current version of the source in the config file
-    updateSourceVersion(source_data, data["tag_name"])
-
-    # If the latest version is the same as the current version, ask the user if they still want to download it
-    if data["tag_name"] == source_data.get("current_version", ""):
-        ans = input(
-            f"{YELLOW}\nLatest release already downloaded for {source_data['source_url'].replace('https://github.com/','')}. Do you still want to download it? (y/n) {NORMAL}"
-        )
-        # If the user answers "n", return an empty list
-        if ans == "n":
-            return []
-
-    # Return the assets from the latest release
-    return data["assets"]
-
-
-def getCategoriesNames_DEPRECATED(categories, source_data, setup_values):
-    # Initialize a list to hold the category names
-    categories_names = {}
-    for value in source_data:
-        for category in categories:
-            # If the category is in the value, add the source data value to the category names
-            if category.lower() == value[:-3].lower():
-                categories_names[category.lower()] = (
-                    source_data[value]
-                    .replace(" ", "")
-                    .lower()
-                    .split(setup_values.get("separator", ","))
-                )
-    return categories_names
-
-
 def copyFile(fileName, destination):
     print("Copying '" + fileName + "'", end=" ... ")
 
@@ -166,44 +108,11 @@ def copyFile(fileName, destination):
         )
 
 
-def downloadReleaseAssets_DEPRECATED(setup_values, assets, categories_names, doCopy):
-    for asset in assets:
-        for category in categories_names:
-            for ids in categories_names[category]:
-                # If the category is in the asset name, set the flag to download the asset
-                if ids in asset["name"].lower():
-                    # Print the name of the file being downloaded
-                    print("\nDownloading '" + asset["name"] + "'", end=" .")
-                    # Make a GET request to the asset download URL
-                    file_dir = requests.get(asset["browser_download_url"])
-                    print(".", end="")
-                    # Write the content of the response to a file
-                    open("downloads/" + asset["name"], "wb").write(file_dir.content)
-                    print(". ", end="")
-                    print(f"{GREEN}FINISHED{NORMAL}")
-                    # Copy the file to the destination directory if the flag is set
-                    (
-                        copyFile(asset["name"], setup_values.get(category + "_dir", ""))
-                        if doCopy
-                        else None
-                    )
-
-
-def getReleases(setup_values, sources_values, categories, doCopy):
-    os.mkdir("downloads") if not os.path.exists("downloads") else None
-    for source_data in sources_values:
-        # Get the release assets for the source
-        assets = getReleaseAssets_DEPRECATED(source_data)
-        # Get the category names for the source
-        categories_names = getCategoriesNames_DEPRECATED(
-            categories, source_data, setup_values
-        )
-        # Download the release assets
-        downloadReleaseAssets_DEPRECATED(setup_values, assets, categories_names, doCopy)
-
-
-def openDirectories(setup_values, categories):
-    if setup_values.get("auto_open_directories", "false").lower() != "true":
+def openDirectories(setup_values, categories, silent=False):
+    if (
+        setup_values.get("auto_open_directories", "false").lower() != "true"
+        and not silent
+    ):
         # Initialize an empty list to store directories
         dirs = []
         # Print the first option and append the corresponding directory to the list
@@ -260,6 +169,11 @@ def openDirectories(setup_values, categories):
                 os.startfile(dir) if dir != "" else None
 
 
+def openDownloads(setup_values):
+    if setup_values.get("auto_open_directories", "false").lower() == "true":
+        os.startfile("downloads")
+
+
 def checkForUpdates():
     url = "https://api.github.com/repos/christopher-pedraza/github-wow-addons-updater/releases/latest"
 
@@ -301,24 +215,6 @@ def checkForUpdates():
                 input("\nPress Enter to exit...")
                 # Exit the program
                 exit(0)
-
-
-def getCategoriesIDs_DEPRECATED(categories, source_data, setup_values):
-    categories_ids = {}
-    for value in source_data:
-        for category in categories:
-            # If the category is in the value, add the source data value to the category names
-            if category.lower() == value[:-3].lower():
-                categories_ids[category.lower()] = (
-                    source_data[value]
-                    .replace(" ", "")
-                    .lower()
-                    .split(setup_values.get("separator", ","))
-                )
-    return categories_ids
-
-
-########################################################################################################################################################
 
 
 def getReleaseAssets(source_data):
@@ -380,14 +276,6 @@ def getCategoriesIDs(categories, source_data, setup_values):
         category = category.lower()
         category_ids = category + "_id"
         if category_ids in source_data:
-            # temp_ids = categories_ids.get(category, [])
-            # temp_ids.extend(
-            #     source_data[category_ids]
-            #     .replace(" ", "")
-            #     .lower()
-            #     .split(setup_values.get("separator", ","))
-            # )
-            # categories_ids[category] = list(set(temp_ids))
             categories_ids[category] = (
                 source_data[category_ids]
                 .replace(" ", "")
@@ -470,16 +358,13 @@ def init():
             downloaded_assets = set()
             downloadAssets(downloaded_assets, setup_values, categories, sources_values)
             copyAssets(downloaded_assets, directories)
-            (
-                openDirectories(setup_values, categories)
-                if setup_values.get("auto_open_directories", "false").lower() == "true"
-                else None
-            )
+            openDirectories(setup_values, categories, silent=True)
         elif exit_value == "2":
             downloaded_assets = set()
             downloadAssets(downloaded_assets, setup_values, categories, sources_values)
+            openDownloads(setup_values)
         elif exit_value == "3":
-            openDirectories(setup_values, categories)
+            openDirectories(setup_values, categories, silent=False)
 
         (
             input(
